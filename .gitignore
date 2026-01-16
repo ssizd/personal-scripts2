@@ -11,9 +11,6 @@ venv/
 env/
 ENV/
 
-# Notified IDs
-notified_ids.json
-
 # IDE
 .vscode/
 .idea/
