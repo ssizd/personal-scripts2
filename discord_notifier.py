@@ -8,6 +8,7 @@ import requests
 import json
 import os
 import sys
+import time
 from datetime import datetime
 from pathlib import Path
 from dotenv import load_dotenv
@@ -131,7 +132,7 @@ class DiscordNotifier:
 
             if new_posts:
                 print(f"🆕 Found {len(new_posts)} new Pixiv post(s)")
-                for illust in new_posts:
+                for i, illust in enumerate(new_posts):
                     illust_id = str(illust['id'])
                     title = illust.get('title', 'Untitled')
                     link = f"https://www.pixiv.net/artworks/{illust_id}"
@@ -145,6 +146,9 @@ class DiscordNotifier:
                         if self.send_discord_notification(message):
                             self.notified_ids['pixiv'].add(illust_id)
                             print(f"✅ Notified: {title}")
+                        # 3 second delay between notifications
+                        if i < len(new_posts) - 1:
+                            time.sleep(3)
 
                 self.save_notified_ids()
             else:
@@ -186,7 +190,7 @@ class DiscordNotifier:
 
                 if new_posts:
                     print(f"🆕 Found {len(new_posts)} new X post(s) from @{username}")
-                    for tweet in new_posts:
+                    for i, tweet in enumerate(new_posts):
                         tweet_id = str(tweet.id)
                         link = f"https://twitter.com/{username}/status/{tweet_id}"
 
@@ -199,6 +203,9 @@ class DiscordNotifier:
                             if self.send_discord_notification(message):
                                 self.notified_ids['twitter'].add(tweet_id)
                                 print(f"✅ Notified: {tweet_id}")
+                            # 3 second delay between notifications
+                            if i < len(new_posts) - 1:
+                                time.sleep(3)
 
                     self.save_notified_ids()
                 else:
