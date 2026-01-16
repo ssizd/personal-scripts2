@@ -2,10 +2,10 @@ name: Discord Notifier
 
 on:
   schedule:
-    # Run every 5 minutes, but skip KST 00:00-08:00 (UTC 15:00-23:00)
+    # Run every 30 minutes, but skip KST 00:00-08:00 (UTC 15:00-23:00)
     # KST 08:00-23:59 = UTC 23:00-14:59
-    - cron: '*/5 0-14 * * *'   # UTC 00:00-14:59 (KST 09:00-23:59)
-    - cron: '*/5 23 * * *'     # UTC 23:00-23:59 (KST 08:00-08:59)
+    - cron: '*/30 0-14 * * *'   # UTC 00:00-14:59 (KST 09:00-23:59)
+    - cron: '*/30 23 * * *'     # UTC 23:00-23:59 (KST 08:00-08:59)
   workflow_dispatch:  # Manual execution
 
 permissions:
