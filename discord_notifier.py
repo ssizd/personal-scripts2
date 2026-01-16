@@ -21,6 +21,20 @@ if sys.platform == 'win32':
 # Load environment variables
 load_dotenv()
 
+# Twitter accounts to monitor
+# Can be set via TWITTER_USERNAMES env var (comma-separated) or edit the list below
+def get_twitter_usernames():
+    env_usernames = os.getenv('TWITTER_USERNAMES', '')
+    if env_usernames:
+        return [u.strip() for u in env_usernames.split(',') if u.strip()]
+    # Fallback: hardcoded list
+    return [
+        "Okaze_Oishi",
+        "Sub_Okaze",
+    ]
+
+TWITTER_USERNAMES = get_twitter_usernames()
+
 
 class DiscordNotifier:
     def __init__(self):
@@ -38,7 +52,9 @@ class DiscordNotifier:
         self.twitter_access_token = os.getenv('TWITTER_ACCESS_TOKEN')
         self.twitter_access_token_secret = os.getenv('TWITTER_ACCESS_TOKEN_SECRET')
         self.twitter_bearer_token = os.getenv('TWITTER_BEARER_TOKEN')
-        self.twitter_username = os.getenv('TWITTER_USERNAME')
+
+        # Twitter accounts to monitor
+        self.twitter_usernames = TWITTER_USERNAMES
 
         # Notified IDs file
         self.notified_file = Path('notified_ids.json')
@@ -143,58 +159,58 @@ class DiscordNotifier:
             print(f"❌ Pixiv check error: {e}")
 
     def check_twitter_new_posts(self):
-        """Check for new X (Twitter) posts"""
-        try:
-            print("🔍 Checking X for new posts...")
+        """Check for new X (Twitter) posts from multiple accounts"""
+        for username in self.twitter_usernames:
+            try:
+                print(f"🔍 Checking X for new posts from @{username}...")
 
-            # Get user ID from username
-            user = self.twitter_client.get_user(username=self.twitter_username)
-            if not user or not user.data:
-                print("⚠️ X user not found")
-                return
+                # Get user ID from username
+                user = self.twitter_client.get_user(username=username)
+                if not user or not user.data:
+                    print(f"⚠️ X user @{username} not found")
+                    continue
 
-            user_id = user.data.id
+                user_id = user.data.id
 
-            # Get latest tweets
-            tweets = self.twitter_client.get_users_tweets(
-                id=user_id,
-                max_results=5,  # API minimum is 5
-                exclude=['retweets', 'replies']
-            )
-            # Only check latest 2
+                # Get latest tweets
+                tweets = self.twitter_client.get_users_tweets(
+                    id=user_id,
+                    max_results=5,  # API minimum is 5
+                    exclude=['retweets', 'replies']
+                )
 
-            if not tweets or not tweets.data:
-                print("✅ No new X posts")
-                return
+                if not tweets or not tweets.data:
+                    print(f"✅ No new X posts from @{username}")
+                    continue
 
-            new_posts = []
-            for tweet in tweets.data[:2]:  # Check latest 2 only
-                tweet_id = str(tweet.id)
-                if tweet_id not in self.notified_ids['twitter']:
-                    new_posts.append(tweet)
-
-            if new_posts:
-                print(f"🆕 Found {len(new_posts)} new X post(s)")
-                for tweet in new_posts:
+                new_posts = []
+                for tweet in tweets.data[:2]:  # Check latest 2 only
                     tweet_id = str(tweet.id)
-                    link = f"https://twitter.com/{self.twitter_username}/status/{tweet_id}"
+                    if tweet_id not in self.notified_ids['twitter']:
+                        new_posts.append(tweet)
 
-                    # First run: save ID only, no notification
-                    if self.is_first_run:
-                        self.notified_ids['twitter'].add(tweet_id)
-                        print(f"📝 Saved (first run): {tweet_id}")
-                    else:
-                        message = f"**New X Post**\n{link}"
-                        if self.send_discord_notification(message):
+                if new_posts:
+                    print(f"🆕 Found {len(new_posts)} new X post(s) from @{username}")
+                    for tweet in new_posts:
+                        tweet_id = str(tweet.id)
+                        link = f"https://twitter.com/{username}/status/{tweet_id}"
+
+                        # First run: save ID only, no notification
+                        if self.is_first_run:
                             self.notified_ids['twitter'].add(tweet_id)
-                            print(f"✅ Notified: {tweet_id}")
+                            print(f"📝 Saved (first run): {tweet_id}")
+                        else:
+                            message = f"**New X Post from @{username}**\n{link}"
+                            if self.send_discord_notification(message):
+                                self.notified_ids['twitter'].add(tweet_id)
+                                print(f"✅ Notified: {tweet_id}")
 
-                self.save_notified_ids()
-            else:
-                print("✅ No new X posts")
+                    self.save_notified_ids()
+                else:
+                    print(f"✅ No new X posts from @{username}")
 
-        except Exception as e:
-            print(f"❌ X check error: {e}")
+            except Exception as e:
+                print(f"❌ X check error for @{username}: {e}")
 
     def run(self):
         """Main execution function"""
