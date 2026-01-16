@@ -159,7 +159,10 @@ class DiscordNotifier:
 
     def check_twitter_new_posts(self):
         """Check for new X (Twitter) posts from multiple accounts"""
-        for username in self.twitter_usernames:
+        for i, username in enumerate(self.twitter_usernames):
+            # Delay between accounts to avoid rate limit
+            if i > 0:
+                time.sleep(5)
             try:
                 print(f"🔍 Checking X for new posts from @{username}...")
 
