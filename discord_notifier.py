@@ -21,17 +21,12 @@ if sys.platform == 'win32':
 # Load environment variables
 load_dotenv()
 
-# Twitter accounts to monitor
-# Can be set via TWITTER_USERNAMES env var (comma-separated) or edit the list below
+# Twitter accounts to monitor (set via TWITTER_USERNAMES env var, comma-separated)
 def get_twitter_usernames():
     env_usernames = os.getenv('TWITTER_USERNAMES', '')
     if env_usernames:
         return [u.strip() for u in env_usernames.split(',') if u.strip()]
-    # Fallback: hardcoded list
-    return [
-        "Okaze_Oishi",
-        "Sub_Okaze",
-    ]
+    return []
 
 TWITTER_USERNAMES = get_twitter_usernames()
 
