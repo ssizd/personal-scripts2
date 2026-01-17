@@ -2,4 +2,4 @@ tweepy==4.14.0
 requests==2.31.0
 pixivpy3==3.7.4
 python-dotenv==1.0.0
-deep-translator==1.11.4
+deepl==1.16.1

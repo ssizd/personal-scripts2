@@ -14,7 +14,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from pixivpy3 import AppPixivAPI
 import tweepy
-from deep_translator import GoogleTranslator
+import deepl
 
 # Windows console encoding fix
 if sys.platform == 'win32':
@@ -53,6 +53,10 @@ class DiscordNotifier:
 
         # Twitter accounts to monitor
         self.twitter_usernames = TWITTER_USERNAMES
+
+        # DeepL translator
+        self.deepl_key = os.getenv('DEEPL_API_KEY')
+        self.translator = deepl.Translator(self.deepl_key) if self.deepl_key else None
 
         # Notified IDs file
         self.notified_file = Path('notified_ids.json')
@@ -141,7 +145,11 @@ class DiscordNotifier:
 
                     # Translate title
                     try:
-                        translated = GoogleTranslator(source='ja', target='en').translate(title)
+                        if self.translator:
+                            result = self.translator.translate_text(title, target_lang="EN-US")
+                            translated = result.text
+                        else:
+                            translated = title
                     except:
                         translated = title
 

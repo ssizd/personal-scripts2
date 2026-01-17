@@ -43,6 +43,7 @@ jobs:
         TWITTER_ACCESS_TOKEN_SECRET: ${{ secrets.TWITTER_ACCESS_TOKEN_SECRET }}
         TWITTER_BEARER_TOKEN: ${{ secrets.TWITTER_BEARER_TOKEN }}
         TWITTER_USERNAMES: ${{ secrets.TWITTER_USERNAMES }}
+        DEEPL_API_KEY: ${{ secrets.DEEPL_API_KEY }}
       run: python -u discord_notifier.py
 
     - name: Commit notified IDs
