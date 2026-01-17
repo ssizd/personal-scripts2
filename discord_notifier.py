@@ -14,6 +14,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from pixivpy3 import AppPixivAPI
 import tweepy
+from deep_translator import GoogleTranslator
 
 # Windows console encoding fix
 if sys.platform == 'win32':
@@ -138,12 +139,18 @@ class DiscordNotifier:
                     title = illust.get('title', 'Untitled')
                     link = f"https://www.pixiv.net/artworks/{illust_id}"
 
+                    # Translate title
+                    try:
+                        translated = GoogleTranslator(source='ja', target='en').translate(title)
+                    except:
+                        translated = title
+
                     # First run: save ID only, no notification
                     if self.is_first_run:
                         self.notified_ids['pixiv'].add(illust_id)
                         print(f"📝 Saved (first run): {title}")
                     else:
-                        message = f"**New Pixiv Post**\n{link}"
+                        message = f"{link}\n{title} / {translated}"
                         if self.send_discord_notification(message, self.pixiv_webhook):
                             self.notified_ids['pixiv'].add(illust_id)
                             print(f"✅ Notified: {title}")
