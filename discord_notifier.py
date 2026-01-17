@@ -35,8 +35,9 @@ TWITTER_USERNAMES = get_twitter_usernames()
 class DiscordNotifier:
     def __init__(self):
         """Initialize Discord notifier with API credentials"""
-        # Discord webhook URL
-        self.discord_webhook = os.getenv('DISCORD_WEBHOOK_URL')
+        # Discord webhook URLs (separate channels)
+        self.pixiv_webhook = os.getenv('DISCORD_WEBHOOK_PIXIV')
+        self.twitter_webhook = os.getenv('DISCORD_WEBHOOK_TWITTER')
 
         # Pixiv settings
         self.pixiv_user_id = os.getenv('PIXIV_USER_ID')
@@ -98,11 +99,11 @@ class DiscordNotifier:
                 'twitter': list(self.notified_ids['twitter'])
             }, f, ensure_ascii=False, indent=2)
 
-    def send_discord_notification(self, content):
+    def send_discord_notification(self, content, webhook_url):
         """Send notification to Discord via webhook"""
         try:
             response = requests.post(
-                self.discord_webhook,
+                webhook_url,
                 json={'content': content},
                 timeout=10
             )
@@ -143,7 +144,7 @@ class DiscordNotifier:
                         print(f"📝 Saved (first run): {title}")
                     else:
                         message = f"**New Pixiv Post**\n{link}"
-                        if self.send_discord_notification(message):
+                        if self.send_discord_notification(message, self.pixiv_webhook):
                             self.notified_ids['pixiv'].add(illust_id)
                             print(f"✅ Notified: {title}")
                         # 3 second delay between notifications
@@ -203,7 +204,7 @@ class DiscordNotifier:
                             print(f"📝 Saved (first run): {tweet_id}")
                         else:
                             message = f"**New X Post from @{username}**\n{link}"
-                            if self.send_discord_notification(message):
+                            if self.send_discord_notification(message, self.twitter_webhook):
                                 self.notified_ids['twitter'].add(tweet_id)
                                 print(f"✅ Notified: {tweet_id}")
                             # 3 second delay between notifications
