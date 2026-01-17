@@ -143,22 +143,17 @@ class DiscordNotifier:
                     title = illust.get('title', 'Untitled')
                     link = f"https://www.pixiv.net/artworks/{illust_id}"
 
-                    # Translate title
-                    try:
-                        if self.translator:
-                            result = self.translator.translate_text(title, target_lang="EN-US")
-                            translated = result.text
-                        else:
-                            translated = title
-                    except:
-                        translated = title
+                    # Get first image URL
+                    image_url = illust.get('image_urls', {}).get('large', '')
+                    if not image_url:
+                        image_url = illust.get('image_urls', {}).get('medium', '')
 
                     # First run: save ID only, no notification
                     if self.is_first_run:
                         self.notified_ids['pixiv'].add(illust_id)
                         print(f"📝 Saved (first run): {title}")
                     else:
-                        message = f"{link}\n{title} / {translated}"
+                        message = f"{link}\n{image_url}"
                         if self.send_discord_notification(message, self.pixiv_webhook):
                             self.notified_ids['pixiv'].add(illust_id)
                             print(f"✅ Notified: {title}")
