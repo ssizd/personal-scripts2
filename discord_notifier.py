@@ -143,10 +143,15 @@ class DiscordNotifier:
                     title = illust.get('title', 'Untitled')
                     link = f"https://www.pixiv.net/artworks/{illust_id}"
 
-                    # Get first image URL
-                    image_url = illust.get('image_urls', {}).get('large', '')
+                    # Get original image URL
+                    image_url = illust.get('meta_single_page', {}).get('original_image_url', '')
                     if not image_url:
-                        image_url = illust.get('image_urls', {}).get('medium', '')
+                        # For multi-page works, get first page
+                        meta_pages = illust.get('meta_pages', [])
+                        if meta_pages:
+                            image_url = meta_pages[0].get('image_urls', {}).get('original', '')
+                    if not image_url:
+                        image_url = illust.get('image_urls', {}).get('large', '')
 
                     # First run: save ID only, no notification
                     if self.is_first_run:
