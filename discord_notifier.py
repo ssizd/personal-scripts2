@@ -167,7 +167,8 @@ class DiscordNotifier:
                         self.notified_ids['pixiv'].add(illust_id)
                         print(f"📝 Saved (first run): {title}")
                     else:
-                        if self.send_discord_notification(link, self.pixiv_webhook, image_url):
+                        message = f"{link}\n{title}"
+                        if self.send_discord_notification(message, self.pixiv_webhook, image_url):
                             self.notified_ids['pixiv'].add(illust_id)
                             print(f"✅ Notified: {title}")
                         # 3 second delay between notifications
