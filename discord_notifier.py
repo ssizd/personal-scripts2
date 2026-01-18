@@ -104,12 +104,21 @@ class DiscordNotifier:
                 'twitter': list(self.notified_ids['twitter'])
             }, f, ensure_ascii=False, indent=2)
 
-    def send_discord_notification(self, content, webhook_url):
+    def send_discord_notification(self, content, webhook_url, image_url=None):
         """Send notification to Discord via webhook"""
         try:
+            if image_url:
+                # Send as embed with image
+                payload = {
+                    'content': content,
+                    'embeds': [{'image': {'url': image_url}}]
+                }
+            else:
+                payload = {'content': content}
+
             response = requests.post(
                 webhook_url,
-                json={'content': content},
+                json=payload,
                 timeout=10
             )
             response.raise_for_status()
@@ -158,8 +167,7 @@ class DiscordNotifier:
                         self.notified_ids['pixiv'].add(illust_id)
                         print(f"📝 Saved (first run): {title}")
                     else:
-                        message = f"{link}\n{image_url}"
-                        if self.send_discord_notification(message, self.pixiv_webhook):
+                        if self.send_discord_notification(link, self.pixiv_webhook, image_url):
                             self.notified_ids['pixiv'].add(illust_id)
                             print(f"✅ Notified: {title}")
                         # 3 second delay between notifications
