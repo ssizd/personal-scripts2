@@ -64,18 +64,22 @@ class PatreonNotifier:
             print(f"❌ Discord notification failed: {e}")
             return False
 
-    def fetch_all_posts(self):
-        """Fetch all posts with pagination"""
+    def fetch_latest_posts(self):
+        """Fetch latest posts by getting last page"""
         headers = {'Authorization': f'Bearer {self.access_token}'}
+
+        # First get total count to find last page
+        url = f'https://www.patreon.com/api/oauth2/v2/campaigns/{self.campaign_id}/posts'
+        params = {
+            'fields[post]': 'title,url,published_at,tiers',
+            'page[count]': 100
+        }
+
+        # Keep fetching until we get to the last page
         all_posts = []
         cursor = None
 
         while True:
-            url = f'https://www.patreon.com/api/oauth2/v2/campaigns/{self.campaign_id}/posts'
-            params = {
-                'fields[post]': 'title,url,published_at,tiers',
-                'page[count]': 100
-            }
             if cursor:
                 params['page[cursor]'] = cursor
 
@@ -84,15 +88,15 @@ class PatreonNotifier:
             data = response.json()
 
             posts = data.get('data', [])
-            all_posts.extend(posts)
+            all_posts = posts  # Only keep latest batch
 
             cursor = data.get('meta', {}).get('pagination', {}).get('cursors', {}).get('next')
             if not cursor or len(posts) == 0:
                 break
 
-        # Sort by published_at descending (newest first)
-        all_posts.sort(key=lambda x: x.get('attributes', {}).get('published_at', ''), reverse=True)
-        return all_posts
+        # Last page has newest posts, sort by ID descending
+        all_posts.sort(key=lambda x: int(x['id']), reverse=True)
+        return all_posts[:10]  # Return latest 10
 
     def check_new_posts(self):
         """Check for new Patreon posts with target tier access"""
@@ -103,9 +107,7 @@ class PatreonNotifier:
         try:
             print("🔍 Checking Patreon for new posts...")
 
-            # Fetch all posts and get latest ones
-            all_posts = self.fetch_all_posts()
-            posts = all_posts[:20]  # Check latest 20
+            posts = self.fetch_latest_posts()
 
             new_posts = []
             for post in posts:
