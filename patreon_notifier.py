@@ -64,6 +64,36 @@ class PatreonNotifier:
             print(f"❌ Discord notification failed: {e}")
             return False
 
+    def fetch_all_posts(self):
+        """Fetch all posts with pagination"""
+        headers = {'Authorization': f'Bearer {self.access_token}'}
+        all_posts = []
+        cursor = None
+
+        while True:
+            url = f'https://www.patreon.com/api/oauth2/v2/campaigns/{self.campaign_id}/posts'
+            params = {
+                'fields[post]': 'title,url,published_at,tiers',
+                'page[count]': 100
+            }
+            if cursor:
+                params['page[cursor]'] = cursor
+
+            response = requests.get(url, headers=headers, params=params)
+            response.raise_for_status()
+            data = response.json()
+
+            posts = data.get('data', [])
+            all_posts.extend(posts)
+
+            cursor = data.get('meta', {}).get('pagination', {}).get('cursors', {}).get('next')
+            if not cursor or len(posts) == 0:
+                break
+
+        # Sort by published_at descending (newest first)
+        all_posts.sort(key=lambda x: x.get('attributes', {}).get('published_at', ''), reverse=True)
+        return all_posts
+
     def check_new_posts(self):
         """Check for new Patreon posts with target tier access"""
         if not self.access_token or not self.webhook or not self.campaign_id or not self.target_tier_id:
@@ -72,19 +102,10 @@ class PatreonNotifier:
 
         try:
             print("🔍 Checking Patreon for new posts...")
-            headers = {'Authorization': f'Bearer {self.access_token}'}
 
-            # Get posts with tier info
-            url = f'https://www.patreon.com/api/oauth2/v2/campaigns/{self.campaign_id}/posts'
-            params = {
-                'fields[post]': 'title,url,published_at,tiers'
-            }
-
-            response = requests.get(url, headers=headers, params=params)
-            response.raise_for_status()
-            data = response.json()
-
-            posts = data.get('data', [])
+            # Fetch all posts and get latest ones
+            all_posts = self.fetch_all_posts()
+            posts = all_posts[:20]  # Check latest 20
 
             new_posts = []
             for post in posts:
