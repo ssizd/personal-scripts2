@@ -26,8 +26,8 @@ class PatreonNotifier:
         """Initialize Patreon notifier with API credentials"""
         self.webhook = os.getenv('DISCORD_WEBHOOK_PATREON')
         self.access_token = os.getenv('PATREON_ACCESS_TOKEN')
-        self.campaign_id = os.getenv('PATREON_CAMPAIGN_ID', '13098189')
-        self.target_tier_id = os.getenv('PATREON_TARGET_TIER_ID', '24453472')  # Gourmet tier
+        self.campaign_id = os.getenv('PATREON_CAMPAIGN_ID')
+        self.target_tier_id = os.getenv('PATREON_TARGET_TIER_ID')
 
         # Notified IDs file
         self.notified_file = Path('patreon_notified_ids.json')
