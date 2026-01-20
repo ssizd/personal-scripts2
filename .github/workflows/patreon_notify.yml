@@ -1,0 +1,53 @@
+name: Patreon Notifier
+
+on:
+  schedule:
+    # Run every 5 minutes (GitHub minimum)
+    - cron: '*/5 * * * *'
+  workflow_dispatch:  # Manual execution
+
+permissions:
+  contents: write
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        ref: main
+        fetch-depth: 0
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies
+      run: |
+        pip install requests python-dotenv
+
+    - name: Run Patreon notifier
+      env:
+        DISCORD_WEBHOOK_PATREON: ${{ secrets.DISCORD_WEBHOOK_PATREON }}
+        PATREON_ACCESS_TOKEN: ${{ secrets.PATREON_ACCESS_TOKEN }}
+        PATREON_CAMPAIGN_ID: ${{ secrets.PATREON_CAMPAIGN_ID }}
+        PATREON_TARGET_TIER_ID: ${{ secrets.PATREON_TARGET_TIER_ID }}
+      run: python -u patreon_notifier.py
+
+    - name: Commit notified IDs
+      run: |
+        git config --local user.email "github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "github-actions[bot]"
+        git add -f patreon_notified_ids.json
+        git diff --quiet && git diff --staged --quiet || git commit -m "Update Patreon notified IDs [skip ci]"
+
+    - name: Pull latest changes
+      run: git pull --rebase origin main
+
+    - name: Push changes
+      uses: ad-m/github-push-action@master
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
