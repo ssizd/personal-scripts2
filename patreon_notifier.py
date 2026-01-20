@@ -66,7 +66,7 @@ class PatreonNotifier:
 
     def check_new_posts(self):
         """Check for new Patreon posts with target tier access"""
-        if not self.access_token or not self.webhook:
+        if not self.access_token or not self.webhook or not self.campaign_id or not self.target_tier_id:
             print("⚠️ Patreon not configured, skipping...")
             return
 
@@ -77,10 +77,7 @@ class PatreonNotifier:
             # Get posts with tier info
             url = f'https://www.patreon.com/api/oauth2/v2/campaigns/{self.campaign_id}/posts'
             params = {
-                'include': 'access_rules',
-                'fields[post]': 'title,url,published_at',
-                'fields[access_rule]': 'access_rule_type,tier_id',
-                'page[count]': 5
+                'fields[post]': 'title,url,published_at,tiers'
             }
 
             response = requests.get(url, headers=headers, params=params)
@@ -88,28 +85,14 @@ class PatreonNotifier:
             data = response.json()
 
             posts = data.get('data', [])
-            included = data.get('included', [])
-
-            # Build tier map from access rules
-            post_tiers = {}
-            for item in included:
-                if item.get('type') == 'access-rule':
-                    tier_id = item.get('attributes', {}).get('tier_id')
-                    if tier_id:
-                        for post in posts:
-                            rules = post.get('relationships', {}).get('access_rules', {}).get('data', [])
-                            for rule in rules:
-                                if rule.get('id') == item.get('id'):
-                                    if post['id'] not in post_tiers:
-                                        post_tiers[post['id']] = []
-                                    post_tiers[post['id']].append(str(tier_id))
 
             new_posts = []
             for post in posts:
                 post_id = post['id']
                 if post_id not in self.notified_ids:
-                    tiers = post_tiers.get(post_id, [])
-                    if self.target_tier_id in tiers:
+                    # Check if this post includes target tier
+                    tiers = post.get('attributes', {}).get('tiers', [])
+                    if int(self.target_tier_id) in tiers:
                         new_posts.append(post)
 
             if new_posts:
