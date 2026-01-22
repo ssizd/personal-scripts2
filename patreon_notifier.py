@@ -9,9 +9,12 @@ import json
 import os
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from dotenv import load_dotenv
+
+# Korea timezone (UTC+9)
+KST = timezone(timedelta(hours=9))
 
 # Windows console encoding fix
 if sys.platform == 'win32':
@@ -117,6 +120,16 @@ class PatreonNotifier:
             for post in posts:
                 post_id = post['id']
                 if post_id not in self.notified_ids:
+                    # Skip scheduled posts (KST 20:30-20:31)
+                    published_at = post.get('attributes', {}).get('published_at', '')
+                    if published_at:
+                        pub_time = datetime.fromisoformat(published_at.replace('Z', '+00:00'))
+                        pub_kst = pub_time.astimezone(KST)
+                        if pub_kst.hour == 20 and pub_kst.minute in [30, 31]:
+                            print(f"⏭️ Skipping scheduled post: {post.get('attributes', {}).get('title', 'Untitled')}")
+                            self.notified_ids.add(post_id)  # Mark as seen so we don't check again
+                            continue
+
                     tiers = post.get('attributes', {}).get('tiers', [])
 
                     # Check for Gourmet tier
