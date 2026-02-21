@@ -40,8 +40,9 @@ class DiscordNotifier:
         self.pixiv_webhook = os.getenv('DISCORD_WEBHOOK_PIXIV')
         self.twitter_webhook = os.getenv('DISCORD_WEBHOOK_TWITTER')
 
-        # Pixiv settings
-        self.pixiv_user_id = os.getenv('PIXIV_USER_ID')
+        # Pixiv settings (comma-separated user IDs supported)
+        pixiv_ids = os.getenv('PIXIV_USER_ID', '')
+        self.pixiv_user_ids = [uid.strip() for uid in pixiv_ids.split(',') if uid.strip()]
         self.pixiv_refresh_token = os.getenv('PIXIV_REFRESH_TOKEN')
 
         # X API credentials
@@ -128,59 +129,62 @@ class DiscordNotifier:
             return False
 
     def check_pixiv_new_posts(self):
-        """Check for new Pixiv posts"""
-        try:
-            print("🔍 Checking Pixiv for new posts...")
-            result = self.pixiv_api.user_illusts(self.pixiv_user_id)
+        """Check for new Pixiv posts from multiple accounts"""
+        for idx, user_id in enumerate(self.pixiv_user_ids):
+            if idx > 0:
+                time.sleep(3)
+            try:
+                print(f"🔍 Checking Pixiv for new posts (user {user_id})...")
+                result = self.pixiv_api.user_illusts(user_id)
 
-            if not result or 'illusts' not in result:
-                print("⚠️ No Pixiv posts found")
-                return
+                if not result or 'illusts' not in result:
+                    print(f"⚠️ No Pixiv posts found for user {user_id}")
+                    continue
 
-            illusts = result['illusts'][:2]  # Check latest 2
-            new_posts = []
+                illusts = result['illusts'][:2]  # Check latest 2
+                new_posts = []
 
-            for illust in illusts:
-                illust_id = str(illust['id'])
-                if illust_id not in self.notified_ids['pixiv']:
-                    new_posts.append(illust)
-
-            if new_posts:
-                print(f"🆕 Found {len(new_posts)} new Pixiv post(s)")
-                for i, illust in enumerate(new_posts):
+                for illust in illusts:
                     illust_id = str(illust['id'])
-                    title = illust.get('title', 'Untitled')
-                    link = f"https://www.pixiv.net/artworks/{illust_id}"
+                    if illust_id not in self.notified_ids['pixiv']:
+                        new_posts.append(illust)
 
-                    # Get original image URL
-                    image_url = illust.get('meta_single_page', {}).get('original_image_url', '')
-                    if not image_url:
-                        # For multi-page works, get first page
-                        meta_pages = illust.get('meta_pages', [])
-                        if meta_pages:
-                            image_url = meta_pages[0].get('image_urls', {}).get('original', '')
-                    if not image_url:
-                        image_url = illust.get('image_urls', {}).get('large', '')
+                if new_posts:
+                    print(f"🆕 Found {len(new_posts)} new Pixiv post(s) from user {user_id}")
+                    for i, illust in enumerate(new_posts):
+                        illust_id = str(illust['id'])
+                        title = illust.get('title', 'Untitled')
+                        link = f"https://www.pixiv.net/artworks/{illust_id}"
 
-                    # First run: save ID only, no notification
-                    if self.is_first_run:
-                        self.notified_ids['pixiv'].add(illust_id)
-                        print(f"📝 Saved (first run): {title}")
-                    else:
-                        message = f"{link}\n{title}"
-                        if self.send_discord_notification(message, self.pixiv_webhook, image_url):
+                        # Get original image URL
+                        image_url = illust.get('meta_single_page', {}).get('original_image_url', '')
+                        if not image_url:
+                            # For multi-page works, get first page
+                            meta_pages = illust.get('meta_pages', [])
+                            if meta_pages:
+                                image_url = meta_pages[0].get('image_urls', {}).get('original', '')
+                        if not image_url:
+                            image_url = illust.get('image_urls', {}).get('large', '')
+
+                        # First run: save ID only, no notification
+                        if self.is_first_run:
                             self.notified_ids['pixiv'].add(illust_id)
-                            print(f"✅ Notified: {title}")
-                        # 3 second delay between notifications
-                        if i < len(new_posts) - 1:
-                            time.sleep(3)
+                            print(f"📝 Saved (first run): {title}")
+                        else:
+                            message = f"{link}\n{title}"
+                            if self.send_discord_notification(message, self.pixiv_webhook, image_url):
+                                self.notified_ids['pixiv'].add(illust_id)
+                                print(f"✅ Notified: {title}")
+                            # 3 second delay between notifications
+                            if i < len(new_posts) - 1:
+                                time.sleep(3)
 
-                self.save_notified_ids()
-            else:
-                print("✅ No new Pixiv posts")
+                    self.save_notified_ids()
+                else:
+                    print(f"✅ No new Pixiv posts from user {user_id}")
 
-        except Exception as e:
-            print(f"❌ Pixiv check error: {e}")
+            except Exception as e:
+                print(f"❌ Pixiv check error (user {user_id}): {e}")
 
     def check_twitter_new_posts(self):
         """Check for new X (Twitter) posts from multiple accounts"""

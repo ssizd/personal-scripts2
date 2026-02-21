@@ -29,6 +29,7 @@ class PatreonNotifier:
         """Initialize Patreon notifier with API credentials"""
         self.webhook_gourmet = os.getenv('DISCORD_WEBHOOK_PATREON')
         self.webhook_public = os.getenv('DISCORD_WEBHOOK_PATREON_PUBLIC')
+        self.webhook_vault = os.getenv('DISCORD_WEBHOOK_PATREON_VAULT')
         self.access_token = os.getenv('PATREON_ACCESS_TOKEN')
         self.campaign_id = os.getenv('PATREON_CAMPAIGN_ID')
         self.target_tier_id = os.getenv('PATREON_TARGET_TIER_ID')
@@ -115,6 +116,7 @@ class PatreonNotifier:
             posts = self.fetch_latest_posts()
 
             gourmet_posts = []
+            vault_posts = []
             public_posts = []
 
             for post in posts:
@@ -130,10 +132,14 @@ class PatreonNotifier:
                             self.notified_ids.add(post_id)  # Mark as seen so we don't check again
                             continue
 
+                    title = post.get('attributes', {}).get('title', '')
                     tiers = post.get('attributes', {}).get('tiers', [])
 
+                    # [Vault] posts → T2 channel only (not T3)
+                    if '[Vault]' in title:
+                        vault_posts.append(post)
                     # Check for Gourmet tier
-                    if self.target_tier_id and int(self.target_tier_id) in tiers:
+                    elif self.target_tier_id and int(self.target_tier_id) in tiers:
                         gourmet_posts.append(post)
                     # Check for public/lowest tier (empty tiers = public, or lowest tier included)
                     elif len(tiers) == 0 or (self.lowest_tier_id and int(self.lowest_tier_id) in tiers):
@@ -157,6 +163,24 @@ class PatreonNotifier:
                         if i < len(gourmet_posts) - 1:
                             time.sleep(3)
 
+            # Notify Vault posts (T2 channel)
+            if vault_posts and self.webhook_vault:
+                print(f"🆕 Found {len(vault_posts)} new Vault post(s)")
+                for i, post in enumerate(vault_posts):
+                    post_id = post['id']
+                    title = post.get('attributes', {}).get('title', 'Untitled')
+                    post_url = f"https://www.patreon.com{post.get('attributes', {}).get('url', f'/posts/{post_id}')}"
+
+                    if self.is_first_run:
+                        self.notified_ids.add(post_id)
+                        print(f"📝 Saved (first run): {title}")
+                    else:
+                        if self.send_discord_notification(post_url, self.webhook_vault):
+                            self.notified_ids.add(post_id)
+                            print(f"✅ Notified (Vault/T2): {title}")
+                        if i < len(vault_posts) - 1:
+                            time.sleep(3)
+
             # Notify public/lowest tier posts
             if public_posts and self.webhook_public:
                 print(f"🆕 Found {len(public_posts)} new public/lowest tier post(s)")
@@ -175,7 +199,7 @@ class PatreonNotifier:
                         if i < len(public_posts) - 1:
                             time.sleep(3)
 
-            if gourmet_posts or public_posts:
+            if gourmet_posts or vault_posts or public_posts:
                 self.save_notified_ids()
             else:
                 print("✅ No new Patreon posts")
