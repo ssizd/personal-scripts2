@@ -30,10 +30,12 @@ class PatreonNotifier:
         self.webhook_gourmet = os.getenv('DISCORD_WEBHOOK_PATREON')
         self.webhook_public = os.getenv('DISCORD_WEBHOOK_PATREON_PUBLIC')
         self.webhook_vault = os.getenv('DISCORD_WEBHOOK_PATREON_VAULT')
+        self.webhook_tier4 = os.getenv('DISCORD_WEBHOOK_PATREON_TIER4')
         self.access_token = os.getenv('PATREON_ACCESS_TOKEN')
         self.campaign_id = os.getenv('PATREON_CAMPAIGN_ID')
         self.target_tier_id = os.getenv('PATREON_TARGET_TIER_ID')
         self.lowest_tier_id = os.getenv('PATREON_LOWEST_TIER_ID')  # TASTER tier
+        self.tier4_tier_id = os.getenv('PATREON_TIER4_TIER_ID')
 
         # Notified IDs file
         self.notified_file = Path('patreon_notified_ids.json')
@@ -42,11 +44,13 @@ class PatreonNotifier:
     def load_notified_ids(self):
         """Load already notified IDs"""
         self.is_first_run = False
+        self.tier4_seeded = False
         if self.notified_file.exists():
             with open(self.notified_file, 'r', encoding='utf-8') as f:
                 data = json.load(f)
                 if not data.get('patreon'):
                     self.is_first_run = True
+                self.tier4_seeded = data.get('tier4_seeded', False)
                 return set(data.get('patreon', []))
         self.is_first_run = True
         return set()
@@ -54,7 +58,10 @@ class PatreonNotifier:
     def save_notified_ids(self):
         """Save notified IDs"""
         with open(self.notified_file, 'w', encoding='utf-8') as f:
-            json.dump({'patreon': list(self.notified_ids)}, f, ensure_ascii=False, indent=2)
+            json.dump({
+                'patreon': list(self.notified_ids),
+                'tier4_seeded': self.tier4_seeded
+            }, f, ensure_ascii=False, indent=2)
 
     def send_discord_notification(self, content, webhook_url):
         """Send notification to Discord via webhook"""
@@ -118,6 +125,7 @@ class PatreonNotifier:
             gourmet_posts = []
             vault_posts = []
             public_posts = []
+            tier4_posts = []
 
             for post in posts:
                 post_id = post['id']
@@ -141,6 +149,9 @@ class PatreonNotifier:
                     # Check for Gourmet tier
                     elif self.target_tier_id and int(self.target_tier_id) in tiers:
                         gourmet_posts.append(post)
+                    # Check for Tier4
+                    elif self.tier4_tier_id and int(self.tier4_tier_id) in tiers:
+                        tier4_posts.append(post)
                     # Check for public/lowest tier (empty tiers = public, or lowest tier included)
                     elif len(tiers) == 0 or (self.lowest_tier_id and int(self.lowest_tier_id) in tiers):
                         public_posts.append(post)
@@ -181,6 +192,26 @@ class PatreonNotifier:
                         if i < len(vault_posts) - 1:
                             time.sleep(3)
 
+            # Notify Tier4 posts (skip backfill: first time tier4 is seen, just seed IDs silently)
+            if tier4_posts and self.webhook_tier4:
+                tier4_first_run = self.is_first_run or not self.tier4_seeded
+                print(f"🆕 Found {len(tier4_posts)} new Tier4 post(s)")
+                for i, post in enumerate(tier4_posts):
+                    post_id = post['id']
+                    title = post.get('attributes', {}).get('title', 'Untitled')
+                    post_url = f"https://www.patreon.com{post.get('attributes', {}).get('url', f'/posts/{post_id}')}"
+
+                    if tier4_first_run:
+                        self.notified_ids.add(post_id)
+                        print(f"📝 Saved (no backfill): {title}")
+                    else:
+                        if self.send_discord_notification(post_url, self.webhook_tier4):
+                            self.notified_ids.add(post_id)
+                            print(f"✅ Notified (Tier4): {title}")
+                        if i < len(tier4_posts) - 1:
+                            time.sleep(3)
+                self.tier4_seeded = True
+
             # Notify public/lowest tier posts
             if public_posts and self.webhook_public:
                 print(f"🆕 Found {len(public_posts)} new public/lowest tier post(s)")
@@ -199,7 +230,7 @@ class PatreonNotifier:
                         if i < len(public_posts) - 1:
                             time.sleep(3)
 
-            if gourmet_posts or vault_posts or public_posts:
+            if gourmet_posts or vault_posts or public_posts or tier4_posts:
                 self.save_notified_ids()
             else:
                 print("✅ No new Patreon posts")
