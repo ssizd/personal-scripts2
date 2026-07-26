@@ -40,6 +40,7 @@ jobs:
         PATREON_TARGET_TIER_ID: ${{ secrets.PATREON_TARGET_TIER_ID }}
         PATREON_LOWEST_TIER_ID: ${{ secrets.PATREON_LOWEST_TIER_ID }}
         PATREON_TIER4_TIER_ID: ${{ secrets.PATREON_TIER4_TIER_ID }}
+        PATREON_TIER2_TIER_ID: ${{ secrets.PATREON_TIER2_TIER_ID }}
       run: python -u patreon_notifier.py
 
     - name: Commit notified IDs

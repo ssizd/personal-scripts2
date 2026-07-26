@@ -36,6 +36,7 @@ class PatreonNotifier:
         self.target_tier_id = os.getenv('PATREON_TARGET_TIER_ID')
         self.lowest_tier_id = os.getenv('PATREON_LOWEST_TIER_ID')  # TASTER tier
         self.tier4_tier_id = os.getenv('PATREON_TIER4_TIER_ID')
+        self.tier2_tier_id = os.getenv('PATREON_TIER2_TIER_ID')  # Big Eater tier
 
         # Notified IDs file
         self.notified_file = Path('patreon_notified_ids.json')
@@ -143,14 +144,19 @@ class PatreonNotifier:
                     title = post.get('attributes', {}).get('title', '')
                     tiers = post.get('attributes', {}).get('tiers', [])
 
+                    # tiers is cumulative (contains the selected tier and every tier above it),
+                    # so exclude the tier right below each bucket to avoid catching lower-tier posts
+                    is_tier2 = self.tier2_tier_id and int(self.tier2_tier_id) in tiers
+                    is_gourmet = self.target_tier_id and int(self.target_tier_id) in tiers
+
                     # [Vault] posts → T2 channel only (not T3)
                     if '[Vault]' in title:
                         vault_posts.append(post)
-                    # Check for Gourmet tier
-                    elif self.target_tier_id and int(self.target_tier_id) in tiers:
+                    # Check for Gourmet tier (T3+), excluding posts also visible to Big Eater (T2)
+                    elif is_gourmet and not is_tier2:
                         gourmet_posts.append(post)
-                    # Check for Tier4
-                    elif self.tier4_tier_id and int(self.tier4_tier_id) in tiers:
+                    # Check for Tier4, excluding posts also visible to Gourmet (T3)
+                    elif self.tier4_tier_id and int(self.tier4_tier_id) in tiers and not is_gourmet:
                         tier4_posts.append(post)
                     # Check for public/lowest tier (empty tiers = public, or lowest tier included)
                     elif len(tiers) == 0 or (self.lowest_tier_id and int(self.lowest_tier_id) in tiers):
