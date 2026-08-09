@@ -7,6 +7,7 @@ Monitors Patreon for new posts with specific tier access and sends Discord notif
 import requests
 import json
 import os
+import re
 import sys
 import time
 from datetime import datetime, timezone, timedelta
@@ -15,6 +16,7 @@ from dotenv import load_dotenv
 
 # Korea timezone (UTC+9)
 KST = timezone(timedelta(hours=9))
+DUPLICATE_WINDOW = timedelta(hours=3)
 
 # Windows console encoding fix
 if sys.platform == 'win32':
@@ -40,6 +42,7 @@ class PatreonNotifier:
 
         # Notified IDs file
         self.notified_file = Path('patreon_notified_ids.json')
+        self.recent_posts = {}
         self.notified_ids = self.load_notified_ids()
 
     def load_notified_ids(self):
@@ -52,6 +55,7 @@ class PatreonNotifier:
                 if not data.get('patreon'):
                     self.is_first_run = True
                 self.tier4_seeded = data.get('tier4_seeded', False)
+                self.recent_posts = data.get('recent_posts', {})
                 return set(data.get('patreon', []))
         self.is_first_run = True
         return set()
@@ -60,9 +64,42 @@ class PatreonNotifier:
         """Save notified IDs"""
         with open(self.notified_file, 'w', encoding='utf-8') as f:
             json.dump({
-                'patreon': list(self.notified_ids),
-                'tier4_seeded': self.tier4_seeded
+                'patreon': sorted(self.notified_ids, key=int),
+                'tier4_seeded': self.tier4_seeded,
+                'recent_posts': self.recent_posts
             }, f, ensure_ascii=False, indent=2)
+
+    def post_fingerprint(self, post):
+        """Build a stable key that ignores Patreon's numeric post ID."""
+        attributes = post.get('attributes', {})
+        title = ' '.join(attributes.get('title', '').casefold().split())
+        path = attributes.get('url', '').split('?', 1)[0].rstrip('/')
+        path = re.sub(r'-?\d+$', '', path).rstrip('-')
+        return f'{title}|{path}'
+
+    def is_recent_duplicate(self, post, now):
+        fingerprint = self.post_fingerprint(post)
+        previous = self.recent_posts.get(fingerprint)
+        if not previous:
+            return False
+        try:
+            sent_at = datetime.fromisoformat(previous['sent_at'].replace('Z', '+00:00'))
+        except (KeyError, TypeError, ValueError):
+            return False
+        return now - sent_at <= DUPLICATE_WINDOW
+
+    def remember_post(self, post, now):
+        fingerprint = self.post_fingerprint(post)
+        self.recent_posts[fingerprint] = {
+            'post_id': post['id'],
+            'sent_at': now.isoformat().replace('+00:00', 'Z')
+        }
+
+        cutoff = now - DUPLICATE_WINDOW
+        self.recent_posts = {
+            key: value for key, value in self.recent_posts.items()
+            if datetime.fromisoformat(value['sent_at'].replace('Z', '+00:00')) >= cutoff
+        }
 
     def send_discord_notification(self, content, webhook_url):
         """Send notification to Discord via webhook"""
@@ -127,10 +164,18 @@ class PatreonNotifier:
             vault_posts = []
             public_posts = []
             tier4_posts = []
+            state_changed = False
+            now = datetime.now(timezone.utc)
 
             for post in posts:
                 post_id = post['id']
                 if post_id not in self.notified_ids:
+                    if self.is_recent_duplicate(post, now):
+                        print(f"⏭️ Skipping recent duplicate with new ID: {post.get('attributes', {}).get('title', 'Untitled')}")
+                        self.notified_ids.add(post_id)
+                        state_changed = True
+                        continue
+
                     # Skip scheduled posts (KST 20:00-21:00)
                     published_at = post.get('attributes', {}).get('published_at', '')
                     if published_at:
@@ -139,6 +184,7 @@ class PatreonNotifier:
                         if pub_kst.hour == 20:
                             print(f"⏭️ Skipping scheduled post: {post.get('attributes', {}).get('title', 'Untitled')}")
                             self.notified_ids.add(post_id)  # Mark as seen so we don't check again
+                            state_changed = True
                             continue
 
                     title = post.get('attributes', {}).get('title', '')
@@ -172,10 +218,14 @@ class PatreonNotifier:
 
                     if self.is_first_run:
                         self.notified_ids.add(post_id)
+                        self.remember_post(post, now)
+                        state_changed = True
                         print(f"📝 Saved (first run): {title}")
                     else:
                         if self.send_discord_notification(post_url, self.webhook_gourmet):
                             self.notified_ids.add(post_id)
+                            self.remember_post(post, now)
+                            state_changed = True
                             print(f"✅ Notified (Gourmet): {title}")
                         if i < len(gourmet_posts) - 1:
                             time.sleep(3)
@@ -190,10 +240,14 @@ class PatreonNotifier:
 
                     if self.is_first_run:
                         self.notified_ids.add(post_id)
+                        self.remember_post(post, now)
+                        state_changed = True
                         print(f"📝 Saved (first run): {title}")
                     else:
                         if self.send_discord_notification(post_url, self.webhook_vault):
                             self.notified_ids.add(post_id)
+                            self.remember_post(post, now)
+                            state_changed = True
                             print(f"✅ Notified (Vault/T2): {title}")
                         if i < len(vault_posts) - 1:
                             time.sleep(3)
@@ -209,10 +263,14 @@ class PatreonNotifier:
 
                     if tier4_first_run:
                         self.notified_ids.add(post_id)
+                        self.remember_post(post, now)
+                        state_changed = True
                         print(f"📝 Saved (no backfill): {title}")
                     else:
                         if self.send_discord_notification(post_url, self.webhook_tier4):
                             self.notified_ids.add(post_id)
+                            self.remember_post(post, now)
+                            state_changed = True
                             print(f"✅ Notified (Tier4): {title}")
                         if i < len(tier4_posts) - 1:
                             time.sleep(3)
@@ -228,15 +286,19 @@ class PatreonNotifier:
 
                     if self.is_first_run:
                         self.notified_ids.add(post_id)
+                        self.remember_post(post, now)
+                        state_changed = True
                         print(f"📝 Saved (first run): {title}")
                     else:
                         if self.send_discord_notification(post_url, self.webhook_public):
                             self.notified_ids.add(post_id)
+                            self.remember_post(post, now)
+                            state_changed = True
                             print(f"✅ Notified (Public): {title}")
                         if i < len(public_posts) - 1:
                             time.sleep(3)
 
-            if gourmet_posts or vault_posts or public_posts or tier4_posts:
+            if state_changed:
                 self.save_notified_ids()
             else:
                 print("✅ No new Patreon posts")

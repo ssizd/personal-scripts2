@@ -9,6 +9,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: patreon-notifier
+  cancel-in-progress: false
+
 jobs:
   notify:
     runs-on: ubuntu-latest
