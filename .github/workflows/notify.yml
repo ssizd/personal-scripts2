@@ -2,9 +2,10 @@ name: Discord Notifier
 
 on:
   schedule:
-    # Run every 15 minutes, offset from the top of the hour to reduce
-    # the chance of GitHub Actions schedule delays during peak times.
-    - cron: '5,20,35,50 * * * *'
+    # Run every 15 minutes during KST 08:00-23:59 only.
+    # Offset from the top of the hour to reduce GitHub schedule delays.
+    - cron: '5,20,35,50 0-14 * * *'  # KST 09:05-23:50
+    - cron: '5,20,35,50 23 * * *'    # KST 08:05-08:50
   workflow_dispatch:  # Manual execution
 
 permissions:
