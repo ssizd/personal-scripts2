@@ -1,10 +1,8 @@
 name: Patreon Notifier
 
 on:
-  schedule:
-    # Run every 5 minutes (GitHub minimum)
-    - cron: '*/5 * * * *'
-  workflow_dispatch:  # Manual execution
+  # Cloudflare Cron triggers this workflow once per hour.
+  workflow_dispatch:
 
 permissions:
   contents: write

@@ -1,8 +1,10 @@
-const WORKFLOW_DISPATCH_URL =
-  "https://api.github.com/repos/ssizd/personal-scripts2/actions/workflows/notify.yml/dispatches";
+const REPOSITORY_WORKFLOWS_URL =
+  "https://api.github.com/repos/ssizd/personal-scripts2/actions/workflows";
 
-async function dispatchDiscordNotifier(env) {
-  const response = await fetch(WORKFLOW_DISPATCH_URL, {
+const PATREON_CRON = "12 * * * *";
+
+async function dispatchWorkflow(workflow, env) {
+  const response = await fetch(`${REPOSITORY_WORKFLOWS_URL}/${workflow}/dispatches`, {
     method: "POST",
     headers: {
       Accept: "application/vnd.github+json",
@@ -15,13 +17,12 @@ async function dispatchDiscordNotifier(env) {
   });
 
   if (response.status !== 204) {
-    const details = await response.text();
-    throw new Error(`GitHub workflow dispatch failed (${response.status}): ${details}`);
+    throw new Error(`GitHub workflow dispatch failed for ${workflow} (${response.status})`);
   }
 
   console.log(JSON.stringify({
     event: "workflow_dispatched",
-    workflow: "notify.yml",
+    workflow,
     scheduledAt: new Date().toISOString()
   }));
 }
@@ -34,7 +35,11 @@ export default {
     });
   },
 
-  async scheduled(_controller, env) {
-    await dispatchDiscordNotifier(env);
+  async scheduled(controller, env) {
+    const workflow = controller.cron === PATREON_CRON
+      ? "patreon_notify.yml"
+      : "notify.yml";
+
+    await dispatchWorkflow(workflow, env);
   }
 };
