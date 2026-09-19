@@ -405,13 +405,19 @@
     "169591939",
     "169592668",
     "169592830",
-    "169803547"
+    "169803547",
+    "169803958",
+    "169805138"
   ],
   "tier4_seeded": true,
   "recent_posts": {
-    "september 2nd week 2026 collection|/Okaze_Oishi/posts/september-2nd": {
-      "post_id": "169405610",
-      "sent_at": "2026-09-13T12:13:15.095274Z"
+    "zzz - claret flint&roxy ifrita pryce(211p)|/Okaze_Oishi/posts/zzz-claret-flint": {
+      "post_id": "169803958",
+      "sent_at": "2026-09-19T11:12:47.086059Z"
+    },
+    "zzz - claret&roxy picotiral (112p)|/Okaze_Oishi/posts/zzz-claret-roxy": {
+      "post_id": "169805138",
+      "sent_at": "2026-09-19T11:12:47.086059Z"
     }
   }
 }
