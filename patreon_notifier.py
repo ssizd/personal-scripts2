@@ -176,12 +176,12 @@ class PatreonNotifier:
                         state_changed = True
                         continue
 
-                    # Skip scheduled posts (KST 20:00-21:00)
+                    # Skip scheduled posts (KST 19:30-21:00)
                     published_at = post.get('attributes', {}).get('published_at', '')
                     if published_at:
                         pub_time = datetime.fromisoformat(published_at.replace('Z', '+00:00'))
                         pub_kst = pub_time.astimezone(KST)
-                        if pub_kst.hour == 20:
+                        if 19 * 60 + 30 <= pub_kst.hour * 60 + pub_kst.minute < 21 * 60:
                             print(f"⏭️ Skipping scheduled post: {post.get('attributes', {}).get('title', 'Untitled')}")
                             self.notified_ids.add(post_id)  # Mark as seen so we don't check again
                             state_changed = True
