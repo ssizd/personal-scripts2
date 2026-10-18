@@ -442,6 +442,7 @@
     "172503417",
     "172503839",
     "172504901",
+    "172506409",
     "172624747"
   ],
   "tier4_seeded": true,
@@ -449,6 +450,10 @@
     "[vault+] bocchi the rock! train situation (472p)|/Okaze_Oishi/posts/vault-bocchi": {
       "post_id": "172624747",
       "sent_at": "2026-10-18T04:12:44.435308Z"
+    },
+    "[vault] brown dust2 collection 2 (732p)|/Okaze_Oishi/posts/vault-brown-2": {
+      "post_id": "172506409",
+      "sent_at": "2026-10-18T06:12:43.360324Z"
     }
   }
 }
